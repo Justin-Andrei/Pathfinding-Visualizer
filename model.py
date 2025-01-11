@@ -39,22 +39,27 @@ class DFS:
 
         is_solved = self._dfs(board, start, visited, path)
 
-        if not is_solved:
-            raise ValueError("No valid path to destination or no destination")
+        for row in board:
+            for cell in row:
+                if cell.state == CellState.Visited:
+                    if cell == start:
+                        cell.change_state(CellState.Start)
+                    else:
+                        cell.change_state(CellState.Unvisited)
 
-        return Result(visited, path)
+        path.reverse()
+        path.pop()
+
+        return Result(visited, path, is_solved)
 
     def _dfs(self, board: Board, curr: Cell, visited: list[Cell], path: list[Cell]):
-        visited.append(curr)
-        print(f"I am {curr.row}: {curr.col}")
-        print(f"neighbors: {curr.get_neighbors()}")
-        print()
         if curr.state == CellState.Destination:
-            print(f"Destination at {curr}")
             return True
         if curr.state == CellState.Visited:
             return False
-        curr.change_state(CellState.Visited)
+        if curr.state == CellState.Unvisited:
+            curr.change_state(CellState.Visited)
+            visited.append(curr)
         neighbors = curr.get_neighbors()
         for neighbor in neighbors:
             found = self._dfs(board, neighbor, visited, path)
@@ -63,11 +68,68 @@ class DFS:
                 return True
         return False
 
-
-
 class BFS:
     def find_path(self, board: Board) -> Result:
-        ...
+        start: Cell | None = None
+        for row in board:
+            for cell in row:
+                if cell.state == CellState.Start:
+                    start = cell
+        if start == None:
+            raise ValueError("No starting cell")
+
+        visited: list[Cell] = [] 
+        path: list[Cell] = []
+
+        cells_to_visit: list[Cell] = []
+        cells_to_visit += start.get_neighbors()
+        print(cells_to_visit)
+        parent_node: dict[Cell, Cell] = {}
+        for cell in start.get_neighbors():
+            parent_node[cell] = start
+        prev_cell: Cell = start
+        # is_solved = False
+        while len(cells_to_visit) != 0:
+            curr_cell = cells_to_visit.pop(0)
+            # print(curr_cell)
+            if curr_cell.state == CellState.Destination:
+                # is_solved = True
+                prev_cell = curr_cell
+                break
+            if curr_cell.state == CellState.Visited:
+                continue
+            if curr_cell.state == CellState.Unvisited:
+                curr_cell.change_state(CellState.Visited)
+                visited.append(curr_cell)
+                prev_cell = curr_cell
+            cells_to_visit += curr_cell.get_neighbors()
+            for cell in curr_cell.get_neighbors():
+                if cell.state not in [CellState.Visited, CellState.Start]:
+                    parent_node[cell] = curr_cell
+        # if is_solved:
+        curr_cell = prev_cell
+        while curr_cell != start:
+            path.append(curr_cell)
+            curr_cell = parent_node[curr_cell]
+
+        path.reverse()
+        path.pop()
+
+        for row in board:
+            for cell in row:
+                if cell.state == CellState.Visited:
+                    if cell == start:
+                        cell.change_state(CellState.Start)
+                    else:
+                        cell.change_state(CellState.Unvisited)
+
+        return Result(visited, path, True)
+        # else:
+        #     # no solution
+        #     ...
+            
+            
+        
 
 class Dijkstra:
     def find_path(self, board: Board) -> Result:
@@ -77,7 +139,7 @@ class Astar:
     def find_path(self, board: Board) -> Result:
         ...
 
-def setup_neighbors(board: Board):
+def setup_neighbors(board: list[list[Cell]]):
     for i in range(len(board)):
         for j in range(len(board[0])):
             cell = board[i][j]
@@ -91,16 +153,11 @@ def setup_neighbors(board: Board):
                 cell.add_neighbor(board[i+1][j])
 
 
-boardTest = [[Cell(i, j) for j in range(10)] for i in range(10)]
-setup_neighbors(boardTest)
-boardTest[0][0].change_state(CellState.Start)
-boardTest[9][9].change_state(CellState.Destination)
+test = BFS()
 
-finder = DFS()
-r = finder.find_path(boardTest)
+board = [[Cell(i, j) for j in range(5)] for i in range(5)]
+board[0][0].change_state(CellState.Start)
+board[4][4].change_state(CellState.Destination)
+setup_neighbors(board)
 
-print(r.search)
-print()
-for l in reversed(r.path):
-    print(l)
-# print(r.path)
+print(test.find_path(board))

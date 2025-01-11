@@ -53,11 +53,7 @@ class Cell:
 type Board = list[list[Cell]]
 
 @dataclass(frozen=True)
-class Setup:
-    algorithm: str
-    board: list[list[str]]
-
-@dataclass(frozen=True)
 class Result:
     search: list[Cell]
     path: list[Cell]
+    is_solved: bool
