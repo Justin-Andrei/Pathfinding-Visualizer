@@ -1,9 +1,22 @@
-from game_types import Cell, Board, Result, CellState
+from __future__ import annotations
 from typing import Protocol
+from math import inf
+from dataclasses import dataclass
+
+from game_types import Cell, Board, Result, CellState
 
 class PathFinder(Protocol):
     def find_path(self, board: Board) -> Result:
         ...
+
+def reset_board_color(board: list[list[Cell]], start: Cell):
+    for row in board:
+        for cell in row:
+            if cell.state == CellState.Visited:
+                if cell == start:
+                    cell.change_state(CellState.Start)
+                else:
+                    cell.change_state(CellState.Unvisited)
 
 class Model:
     def solve_board(self, board: Board, algorithm: str) -> Result:
@@ -13,9 +26,9 @@ class Model:
                 pathFinder = DFS()
             case "BFS":
                 pathFinder = BFS()
-            case "BFS":
+            case "Dijkstra":
                 pathFinder = Dijkstra()
-            case "BFS":
+            case "Astar":
                 pathFinder = Astar()
             case _:
                 ...
@@ -39,13 +52,7 @@ class DFS:
 
         is_solved = self._dfs(board, start, visited, path)
 
-        for row in board:
-            for cell in row:
-                if cell.state == CellState.Visited:
-                    if cell == start:
-                        cell.change_state(CellState.Start)
-                    else:
-                        cell.change_state(CellState.Unvisited)
+        reset_board_color(board, start)
 
         path.reverse()
         path.pop()
@@ -83,7 +90,6 @@ class BFS:
 
         cells_to_visit: list[Cell] = []
         cells_to_visit += start.get_neighbors()
-        print(cells_to_visit)
         parent_node: dict[Cell, Cell] = {}
         for cell in start.get_neighbors():
             parent_node[cell] = start
@@ -115,13 +121,7 @@ class BFS:
         path.reverse()
         path.pop()
 
-        for row in board:
-            for cell in row:
-                if cell.state == CellState.Visited:
-                    if cell == start:
-                        cell.change_state(CellState.Start)
-                    else:
-                        cell.change_state(CellState.Unvisited)
+        reset_board_color(board, start)
 
         return Result(visited, path, True)
         # else:
@@ -129,11 +129,86 @@ class BFS:
         #     ...
             
             
-        
+@dataclass
+class DijkstraCell:
+    cell: Cell
+    distance: float
+    parent_node: DijkstraCell | None
 
 class Dijkstra:
+    # start cell
+    # update distance of neighbors
+    # select cell w/ shortest path
+        # visit cell
+        # update distance of neighbors
+    # if destination is visited end
     def find_path(self, board: Board) -> Result:
-        ...
+        d_dict: dict[Cell, DijkstraCell] = {}
+        d_board: list[list[DijkstraCell]] = []
+        to_visit: list[DijkstraCell] = []
+
+        start: DijkstraCell | None = None
+        for row in board:
+            d_row: list[DijkstraCell] = []
+            for cell in row:
+                if cell.state == CellState.Start:
+                    d_cell = DijkstraCell(cell, 0, None)
+                    start = d_cell
+                else:
+                    d_cell = DijkstraCell(cell, inf, None)
+                    to_visit.append(d_cell)
+                d_dict[cell] = d_cell
+                d_row.append(d_cell)
+            d_board.append(d_row)
+
+        if start == None:
+            raise ValueError("No starting cell")
+
+        visited: list[Cell] = [] 
+        path: list[Cell] = []
+
+        path_start: DijkstraCell | None = None
+
+        solved = False
+        curr_cell = start
+        for cell in curr_cell.cell.get_neighbors():
+            d_cell = d_dict[cell]
+            if d_cell.distance > curr_cell.distance + 1:
+                d_cell.parent_node = curr_cell
+                d_cell.distance = curr_cell.distance + 1
+        while len(to_visit) != 0:
+            curr_cell = self._get_shortest_distance_cell(to_visit)
+            if curr_cell.cell.state == CellState.Destination:
+                path_start = curr_cell
+                solved = True
+                break
+            if curr_cell.cell.state == CellState.Unvisited:
+                curr_cell.cell.change_state(CellState.Visited)
+                visited.append(curr_cell.cell)
+                for cell in curr_cell.cell.get_neighbors():
+                    d_cell = d_dict[cell]
+                    if d_cell.distance > curr_cell.distance + 1:
+                        d_cell.parent_node = curr_cell
+                        d_cell.distance = curr_cell.distance + 1
+        
+        if not solved:
+            raise ValueError("MALI ")
+
+        while path_start != start:
+            if path_start != None:
+                path_start = path_start.parent_node
+                if path_start != None:
+                    path.append(path_start.cell)
+
+        path.pop()
+        path.reverse()
+        reset_board_color(board, start.cell)
+        return Result(visited, path, solved)
+
+    def _get_shortest_distance_cell(self, cell_list: list[DijkstraCell]) -> DijkstraCell:
+        cell_list.sort(key=lambda cell: cell.distance)
+        return cell_list.pop(0)
+
 
 class Astar:
     def find_path(self, board: Board) -> Result:
@@ -153,11 +228,11 @@ def setup_neighbors(board: list[list[Cell]]):
                 cell.add_neighbor(board[i+1][j])
 
 
-test = BFS()
+# test = BFS()
 
-board = [[Cell(i, j) for j in range(5)] for i in range(5)]
-board[0][0].change_state(CellState.Start)
-board[4][4].change_state(CellState.Destination)
-setup_neighbors(board)
+# board = [[Cell(i, j) for j in range(5)] for i in range(5)]
+# board[0][0].change_state(CellState.Start)
+# board[4][4].change_state(CellState.Destination)
+# setup_neighbors(board)
 
-print(test.find_path(board))
+# print(test.find_path(board))

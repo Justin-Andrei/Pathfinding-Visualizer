@@ -26,7 +26,7 @@ class Constants:
     DESTINATION_COLOR = "red"
     PATH_COLOR = "yellow"
     CURRENT_CELL_COLOR = "blue"
-    WALL_COLOR = "black"
+    WALL_COLOR = "darkgoldenrod"
     
 class ViewCell:
     def __init__(self, cell: Cell):
@@ -189,18 +189,25 @@ class View:
                         continue
                     self._delay_counter += 1
 
+            keys = pygame.key.get_pressed()
+            mouse_pressed = pygame.mouse.get_pressed()
+            mouse_pos = pygame.mouse.get_pos()
+
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
                     break
 
                 if event.type == pygame.MOUSEBUTTONDOWN and not self._visualizing:
-                    mouse_pos = pygame.mouse.get_pos()
 
-                    for i, row in enumerate(self.board.board):
-                        for j, cell in enumerate(row):
+                    for row in self.board.board:
+                        for cell in row:
                             if cell.rect.collidepoint(mouse_pos):
-                                # print(f"{i}:{j}")
+                                # # add a wall
+                                # if keys[pygame.K_w]:
+                                #     if cell.cell.state not in [CellState.Start, CellState.Destination]:
+                                #         cell.cell.change_state(CellState.Wall)
                                 # add a start cell
                                 if not self._has_start and cell.cell.state != CellState.Destination:
                                     cell.cell.change_state(CellState.Start)
@@ -220,7 +227,7 @@ class View:
 
                     if self._start.rect.collidepoint(mouse_pos) and self._has_dest and self._has_start and not self._solved:  
                         print("VISUALIZE")
-                        self.result = self.solver.solve_board([[cell.cell for cell in row] for row in self.board.board], "BFS")
+                        self.result = self.solver.solve_board([[cell.cell for cell in row] for row in self.board.board], "Dijkstra")
                         if self.result.is_solved:
                             # start visualization
                             self._visualizing = True
@@ -236,7 +243,17 @@ class View:
                         for row in self.board.board:
                             for cell in row:
                                 cell.cell.change_state(CellState.Unvisited)
-                        
+
+            for row in self.board.board:
+                for cell in row:
+                    if mouse_pressed[0] and cell.rect.collidepoint(mouse_pos):
+                        if keys[pygame.K_w]:
+                            if cell.cell.state not in [CellState.Start, CellState.Destination]:
+                                cell.cell.change_state(CellState.Wall)
+                        else:
+                            if cell.cell.state == CellState.Wall:
+                                cell.cell.change_state(CellState.Unvisited)
+
             self.draw()
             self._clock.tick(Constants.FPS)
 
