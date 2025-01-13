@@ -103,13 +103,14 @@ class Board:
 
 class Button:
     def __init__(self, font: pygame.Font, text: str, x: int, y: int):
+        self.word = text
         self._text = font.render(text, True, Constants.FONT_COLOR)
         self.rect = pygame.Rect(x, y, 100, 50)
 
-    def draw(self, surface: pygame.Surface):
+    def draw(self, surface: pygame.Surface, color: str):
         text_rect = self._text.get_rect()
         text_rect.center = self.rect.center
-        pygame.draw.rect(surface, 'white', self.rect)
+        pygame.draw.rect(surface, color, self.rect)
         surface.blit(self._text, text_rect)
 
 class View:
@@ -131,9 +132,15 @@ class View:
         self.solver = Model()
         self._delay_counter = 0
         self._prev_cell: Cell | None = None
+        self._algorithm: str = ""
 
         self._start = Button(self._font, "VISUALIZE", 1000, 30)
         self._reset = Button(self._font, "RESET", 1000, 100)
+
+        self._dfs = Button(self._font, "DFS", 20, 30)
+        self._bfs = Button(self._font, "BFS", 20, 100)
+        self._dijkstra = Button(self._font, "Dijkstra", 130, 30)
+        self._astar = Button(self._font, "A-Star", 130, 100)
 
 
     def draw(self):
@@ -143,12 +150,17 @@ class View:
         self.board.draw(self._screen)
 
         # draw enter button
-        self._start.draw(self._screen)
+        self._start.draw(self._screen, 'white')
 
         # draw reset button
-        self._reset.draw(self._screen)
+        self._reset.draw(self._screen, 'white')
 
         # draw options button
+        for btn in [self._dfs, self._bfs, self._dijkstra, self._astar]:
+            if btn.word == self._algorithm:
+                btn.draw(self._screen, 'gray')
+            else:
+                btn.draw(self._screen, 'white')
 
         # draw instruction?
 
@@ -172,6 +184,11 @@ class View:
             return False
         return True
 
+    def _reset_board(self, board: list[list[Cell]]):
+        for row in board:
+            for cell in row:
+                if cell.state not in [CellState.Start, CellState.Destination, CellState.Wall]:
+                    cell.change_state(CellState.Unvisited)
 
     def run(self):
         running = True
@@ -204,10 +221,6 @@ class View:
                     for row in self.board.board:
                         for cell in row:
                             if cell.rect.collidepoint(mouse_pos):
-                                # # add a wall
-                                # if keys[pygame.K_w]:
-                                #     if cell.cell.state not in [CellState.Start, CellState.Destination]:
-                                #         cell.cell.change_state(CellState.Wall)
                                 # add a start cell
                                 if not self._has_start and cell.cell.state != CellState.Destination:
                                     cell.cell.change_state(CellState.Start)
@@ -225,9 +238,10 @@ class View:
                                     cell.cell.change_state(CellState.Unvisited)
                                     self._has_dest = False
 
-                    if self._start.rect.collidepoint(mouse_pos) and self._has_dest and self._has_start and not self._solved:  
+                    if self._start.rect.collidepoint(mouse_pos) and self._has_dest and self._has_start and not self._solved and self._algorithm != "":  
                         print("VISUALIZE")
-                        self.result = self.solver.solve_board([[cell.cell for cell in row] for row in self.board.board], "Dijkstra")
+                        self._reset_board([[cell.cell for cell in row] for row in self.board.board])
+                        self.result = self.solver.solve_board([[cell.cell for cell in row] for row in self.board.board], self._algorithm)
                         if self.result.is_solved:
                             # start visualization
                             self._visualizing = True
@@ -236,13 +250,17 @@ class View:
                             ...
                             # add message no path etc
 
-
                     if self._reset.rect.collidepoint(mouse_pos):
                         print("RESET")
                         self._has_dest = self._has_start = self._solved = False
                         for row in self.board.board:
                             for cell in row:
                                 cell.cell.change_state(CellState.Unvisited)
+
+                    for btn in [self._dfs, self._bfs, self._dijkstra, self._astar]:
+                        if btn.rect.collidepoint(mouse_pos):
+                            self._algorithm = btn.word
+                            break
 
             for row in self.board.board:
                 for cell in row:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Protocol
-from math import inf
+from math import inf, sqrt
 from dataclasses import dataclass
 
 from game_types import Cell, Board, Result, CellState
@@ -28,7 +28,7 @@ class Model:
                 pathFinder = BFS()
             case "Dijkstra":
                 pathFinder = Dijkstra()
-            case "Astar":
+            case "A-Star":
                 pathFinder = Astar()
             case _:
                 ...
@@ -59,6 +59,7 @@ class DFS:
 
         return Result(visited, path, is_solved)
 
+    # update to store parent node rather than prev node as path
     def _dfs(self, board: Board, curr: Cell, visited: list[Cell], path: list[Cell]):
         if curr.state == CellState.Destination:
             return True
@@ -210,9 +211,107 @@ class Dijkstra:
         return cell_list.pop(0)
 
 
+@dataclass
+class AstarCell:
+    cell: Cell
+    distance: float
+    heuristic: float
+    parent_node: AstarCell | None
+
+
 class Astar:
     def find_path(self, board: Board) -> Result:
-        ...
+        a_dict: dict[Cell, AstarCell] = {}
+        a_board: list[list[AstarCell]] = []
+        to_visit: list[AstarCell] = []
+
+        start: AstarCell | None = None
+
+        dest_location: tuple[int, int] | None = None
+
+        found = False
+        for row in board:
+            for cell in row:
+                if cell.state == CellState.Destination:
+                    dest_location = (cell.row, cell.col)
+                    found = True
+                    break
+            if found:
+                break
+
+        if dest_location == None:
+            raise ValueError("No dest")
+
+        for row in board:
+            a_row: list[AstarCell] = []
+            for cell in row:
+                if cell.state == CellState.Start:
+                    a_cell = AstarCell(cell, 0, self._get_heuristic((cell.row, cell.col), dest_location), None)
+                    start = a_cell
+                elif cell.state == CellState.Destination:
+                    a_cell = AstarCell(cell, inf, 0, None)
+                    to_visit.append(a_cell)
+                else:
+                    a_cell = AstarCell(cell, inf, self._get_heuristic((cell.row, cell.col), dest_location), None)
+                    to_visit.append(a_cell)
+                a_dict[cell] = a_cell
+                a_row.append(a_cell)
+            a_board.append(a_row)
+
+        if start == None:
+            raise ValueError("No starting cell")
+
+        visited: list[Cell] = []
+        path: list[Cell] = []
+
+        path_start: AstarCell | None = None
+
+        solved = False
+        curr_cell = start
+        for cell in curr_cell.cell.get_neighbors():
+            a_cell = a_dict[cell]
+            if a_cell.distance > curr_cell.distance + 1:
+                a_cell.parent_node = curr_cell
+                a_cell.distance = curr_cell.distance + 1
+        while len(to_visit) != 0:
+            curr_cell = self._get_shortest_distance_cell(to_visit)
+            if curr_cell.cell.state == CellState.Destination:
+                path_start = curr_cell
+                solved = True
+                break
+            if curr_cell.cell.state == CellState.Unvisited:
+                curr_cell.cell.change_state(CellState.Visited) 
+                visited.append(curr_cell.cell)
+                for cell in curr_cell.cell.get_neighbors():
+                    a_cell = a_dict[cell]
+                    if a_cell.distance > curr_cell.distance + 1:
+                        a_cell.parent_node = curr_cell
+                        a_cell.distance = curr_cell.distance + 1
+        
+        if not solved:
+            raise ValueError("MALI")
+
+        while path_start != start:
+            if path_start != None:
+                path_start = path_start.parent_node
+                if path_start != None:
+                    path.append(path_start.cell)
+
+        path.pop()
+        path.reverse()
+        reset_board_color(board, start.cell)
+        return Result(visited, path, solved)
+
+
+
+    def _get_shortest_distance_cell(self, cell_list: list[AstarCell]) -> AstarCell:
+        cell_list.sort(key=lambda cell: cell.distance + cell.heuristic)
+        return cell_list.pop(0)
+
+    def _get_heuristic(self, location: tuple[int, int], destination: tuple[int, int]) -> float:
+        return sqrt((destination[0] - location[0])**2 + (destination[1] - location[1])**2)
+
+
 
 def setup_neighbors(board: list[list[Cell]]):
     for i in range(len(board)):
